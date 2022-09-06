@@ -9,25 +9,27 @@
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-PWD:=$(shell pwd)
-DESTINATION="MPlayer.AppImage"
+PWD := $(shell pwd)
+
+DOCKER_COMPOSE:=docker-compose -f $(PWD)/docker-compose.yaml
+
+.EXPORT_ALL_VARIABLES:
+CID=$(shell basename $(PWD) | tr -cd '[:alnum:]' | tr A-Z a-z)
+UID=$(shell id -u)
+GID=$(shell id -g)
+
+.PHONY: all
+
 
 all: clean
-
-	mkdir --parents $(PWD)/build/Mpv.AppDir
-	apprepo --destination=$(PWD)/build appdir mpv
-
-	rm --force $(PWD)/build/Mpv.AppDir/*.desktop 				| true
-	rm --force $(PWD)/build/Mpv.AppDir/*.svg 					| true
-	rm --force $(PWD)/build/Mpv.AppDir/*.png					| true
-
-	cp --force $(PWD)/AppDir/*.desktop $(PWD)/build/Mpv.AppDir/	| true
-	cp --force $(PWD)/AppDir/*.png $(PWD)/build/Mpv.AppDir/ 	| true
-	cp --force $(PWD)/AppDir/*.svg $(PWD)/build/Mpv.AppDir/ 	| true
-
-	echo "exec \$${APPDIR}/bin/mpv --player-operation-mode=pseudo-gui \"\$${@}\"" >> $(PWD)/build/Mpv.AppDir/AppRun
-
-	export ARCH=x86_64 && $(PWD)/bin/appimagetool.AppImage  $(PWD)/build/Mpv.AppDir $(PWD)/Mpv.AppImage
+	$(DOCKER_COMPOSE) stop
+	$(DOCKER_COMPOSE) up --build --no-start
+	$(DOCKER_COMPOSE) up -d  "appimage"
+	$(DOCKER_COMPOSE) run    "appimage" make all
+	$(DOCKER_COMPOSE) run    "appimage" chown -R $(UID):$(GID) ./
+	$(DOCKER_COMPOSE) stop
 
 clean:
-	rm -rf $(PWD)/build
+	$(DOCKER_COMPOSE) up -d  "appimage"
+	$(DOCKER_COMPOSE) run    "appimage" make clean
+	$(DOCKER_COMPOSE) rm --stop --force
